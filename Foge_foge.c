@@ -1,37 +1,22 @@
-# include <stdio.h>
-# include <stdlib.h>
+#include "mapa.h"
 
-char ** mapa;
-int linhas, colunas;
+Mapa mapa_jogo;
+
 
 int main() {
+
+    char comando;
     
+    ler_mapa(&mapa_jogo);
 
-    FILE *f;
+    do {
+        imprimir_mapa(&mapa_jogo);
 
-    f = fopen("mapa.txt", "r");
+        comando = getche();
 
-    if (f == NULL) {
-        printf("Erro na leitura do mapa\n");
-        exit(1);
-    }
-    
-    fscanf(f, "%d %d", &linhas, &colunas);
-    
-    mapa = (char **) malloc(sizeof(char *) * linhas);
+        mover(&mapa_jogo, comando);
 
-    for (int i = 0; i < linhas; i++) {
-        mapa[i] = (char *) malloc(sizeof(char) * (colunas + 1));
-    }
+    } while (!jogo_acabou());
 
-    for (int i = 0; i < 5; i++)
-        fscanf(f, "%s", mapa[i]);
-
-    for (int i = 0; i < 5; i++)
-        printf("%s\n", mapa[i]);
-
-    for (int i = 0; i < linhas; i++) {
-        free(mapa[i]);
-    }
-    free(mapa);
+    liberar_mapa(&mapa_jogo);
 }
