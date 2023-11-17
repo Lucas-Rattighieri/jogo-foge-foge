@@ -278,7 +278,7 @@ int mover_heroi(Mapa * mapa, Heroi * heroi, Fantasmas * fantasmas, char tecla, i
         }
         heroi->posicao.x = prox_x;
         heroi->posicao.y = prox_y;        
-        printf("\n%d %d\n", heroi->posicao.x, heroi->posicao.y);
+        // printf("\n%d %d\n", heroi->posicao.x, heroi->posicao.y);
         
     }
     
@@ -374,17 +374,30 @@ int mover_fantasmas(Mapa * mapa, Heroi * heroi, Fantasmas * fantasmas, int pegou
                     prox_x = candidato_x;
                     prox_y = candidato_y;
                 }
-                if (posicao_heroi(heroi, prox_x, prox_y)) {
-                    heroi->posicao.x = INATIVO;
-                    heroi->posicao.y = INATIVO;
-                }
-            }
-        }            
+
+            } 
+        }   
+        
 
         mapa->matriz[pos_y][pos_x] = '.';
-        mapa->matriz[prox_y][prox_x] = fantasmas->aparencia;
+        if (posicao_heroi(heroi, prox_x, prox_y)) {
+            if (pegou_bomba) {
+                mapa->matriz[prox_y][prox_x] = heroi->aparencia; 
+            }
+            else {
+                heroi->posicao.x = INATIVO;
+                heroi->posicao.y = INATIVO;
+                mapa->matriz[prox_y][prox_x] = fantasmas->aparencia;
+            
+            }
+
+        }
+        else {
+            mapa->matriz[prox_y][prox_x] = fantasmas->aparencia;
+        }
         fantasmas->posicoes[i].x = prox_x;
         fantasmas->posicoes[i].y = prox_y;
+
     }
     
 }

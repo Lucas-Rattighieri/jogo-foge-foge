@@ -1,6 +1,6 @@
 #include "mapa.h"
 
-# define ESPERA 0.95
+# define ESPERA 0.9
 
 Mapa mapa_jogo;
 Heroi heroi_jogo;
@@ -15,6 +15,8 @@ int main() {
     int num_fantasmas_inativos = 0;
     int termino_jogo;
     int passos_heroi = 0;
+
+    srand(time(NULL));
 
     iniciar_heroi(&heroi_jogo, HEROI, 0, 0);
 
