@@ -3,6 +3,7 @@
 # include <conio.h>
 # include <time.h>
 # include <math.h>
+#include <unistd.h>
 # include "ui.h"
 
 # define HEROI '@'
@@ -10,6 +11,8 @@
 # define BOMBA 'P'
 # define PAREDE_VERTICAL '|'
 # define PAREDE_HORIZONTAL '-'
+# define INATIVO -1
+# define PASSOS_COM_BOMBA 16
 
 
 typedef struct {
@@ -141,12 +144,14 @@ void liberar_mapa(Mapa * mapa) {
 }
 
 
-void imprimeparte(char desenho[4][7], int parte) {
+void imprimir_parte(char desenho[4][7], int parte) {
     printf("%s", desenho[parte]);
 }
 
 
-void imprimir_mapa(Mapa * mapa) {
+void imprimir_mapa(Mapa * mapa, int passo_heroi) {
+    printf("\nPassos para comer os fantasmas: %d\n", passo_heroi);
+
     for(int i = 0; i < mapa->linhas; i++) {
 
         for(int parte = 0; parte < 4; parte++) {
@@ -154,20 +159,20 @@ void imprimir_mapa(Mapa * mapa) {
 
                 switch(mapa->matriz[i][j]) {
                     case FANTASMA:
-                        imprimeparte(desenhofantasma, parte);
+                        imprimir_parte(desenhofantasma, parte);
                         break;
                     case HEROI:
-                        imprimeparte(desenhoheroi, parte);
+                        imprimir_parte(desenhoheroi, parte);
                         break;
                     case BOMBA:
-                        imprimeparte(desenhopilula, parte);
+                        imprimir_parte(desenhopilula, parte);
                         break;
                     case PAREDE_HORIZONTAL:
                     case PAREDE_VERTICAL:
-                        imprimeparte(desenhoparede, parte);
+                        imprimir_parte(desenhoparede, parte);
                         break;
                     case '.':
-                        imprimeparte(desenhovazio, parte);
+                        imprimir_parte(desenhovazio, parte);
                         break;
                 }
 
@@ -186,48 +191,136 @@ int posicao_vazio(Mapa * mapa, int x, int y) {
         return 1;
 }
 
-
-int posicao_fantasma(Mapa * mapa, Fantasmas * fantasmas, int x, int y) {
-    if (mapa->matriz[y][x] != fantasmas->aparencia)
-        return 0;
-    else 
+int posicao_parede(Mapa * mapa, int x, int y) {
+    if (mapa->matriz[y][x] == PAREDE_HORIZONTAL || mapa->matriz[y][x] == PAREDE_VERTICAL)
         return 1;
+    else 
+        return 0;
 }
 
 
-int posicao_heroi(Mapa * mapa, Heroi * heroi, int x, int y) {
-    if (mapa->matriz[y][x] != heroi->aparencia)
-        return 0;
-    else 
+int posicao_fantasma(Fantasmas * fantasmas, int x, int y) {
+    for (int i = 0; i < fantasmas->num; i++)
+        if (fantasmas->posicoes[i].x == x && fantasmas->posicoes[i].y == y) {
+            return 1;
+        }
+    return 0;
+            
+
+}
+
+int posicao_bomba(Mapa * mapa, int x, int y) {
+    if (mapa->matriz[y][x] == BOMBA)
         return 1;
+    else 
+        return 0;
 }
 
 
-int mover_heroi(Mapa * mapa, Heroi * heroi, char tecla) {
+int posicao_heroi(Heroi * heroi, int x, int y) {
+    if (heroi->posicao.x == x && heroi->posicao.y == y)
+        return 1;
+    else 
+        return 0;
+}
+
+void escolha_tecla(char tecla, int * pos_x, int * pos_y) {
+	if(tecla == 'w' || tecla == 'W') {
+        (*pos_y)--;
+    }                    
+    if(tecla == 'a' || tecla == 'A') {
+        (*pos_x)--;
+    }                    
+    if(tecla == 's' || tecla == 'S') {
+        (*pos_y)++;
+    }                     
+    if(tecla == 'd' || tecla == 'D') {
+        (*pos_x)++;
+    } 
+}
+
+
+int mover_heroi(Mapa * mapa, Heroi * heroi, Fantasmas * fantasmas, char tecla, int * pegou_bomba, int * passos_heroi) {
     
+    int ha_bomba = 0, ha_fantasma = 0;
     int prox_x = heroi->posicao.x, prox_y = heroi->posicao.y;
 
-	if(tecla == 'w' || tecla == 'W' || tecla == 72){
-        prox_y--;
-    }                    
-    if(tecla == 'a' || tecla == 'A' || tecla == 75){
-        prox_x--;
-    }                    
-    if(tecla == 's' || tecla == 'S' || tecla == 80){
-        prox_y++;
-    }                     
-    if(tecla == 'd' || tecla == 'D' || tecla == 77){
-        prox_x++;
-    } 
+    if (heroi->posicao.x == INATIVO) 
+        return 0;
 
 
-    if (posicao_vazio(mapa, prox_x, prox_y)) {
+    escolha_tecla(tecla, &prox_x, &prox_y);
+
+    ha_bomba = posicao_bomba(mapa, prox_x, prox_y);
+    ha_fantasma = posicao_fantasma(fantasmas, prox_x, prox_y);
+    
+
+    if (!posicao_parede(mapa, prox_x, prox_y)) {
+        
         mapa->matriz[heroi->posicao.y][heroi->posicao.x] = '.';
-        mapa->matriz[prox_y][prox_x] = heroi->aparencia;
+
+        if (ha_fantasma) {
+            if (*pegou_bomba) {
+                mapa->matriz[prox_y][prox_x] = heroi->aparencia;
+            }
+            else {
+                mapa->matriz[prox_y][prox_x] = fantasmas->aparencia;
+            }
+        }
+        else {
+            mapa->matriz[prox_y][prox_x] = heroi->aparencia;
+
+
+            if (ha_bomba) {
+                (*pegou_bomba) = 1;
+                (*passos_heroi) = PASSOS_COM_BOMBA;
+            }
+        }
         heroi->posicao.x = prox_x;
-        heroi->posicao.y = prox_y;
+        heroi->posicao.y = prox_y;        
+        printf("\n%d %d\n", heroi->posicao.x, heroi->posicao.y);
+        
     }
     
+}
+
+int comeu_fantasma(Heroi * heroi, Fantasmas * fantasmas, int * pegou_bomba, int * passos_heroi) {
+
+    if (posicao_fantasma(fantasmas, heroi->posicao.x, heroi->posicao.y)) {
+        if (*pegou_bomba) {
+            for (int i = 0; i < fantasmas->num; i++) {
+                if (fantasmas->posicoes[i].x == heroi->posicao.x && fantasmas->posicoes[i].y == heroi->posicao.y) {
+                    fantasmas->posicoes[i].x = INATIVO;
+                    fantasmas->posicoes[i].y = INATIVO;
+
+                    return 1;
+                }
+            }
+        }
+        else {
+            heroi->posicao.x = INATIVO;
+            heroi->posicao.y = INATIVO;
+            return 0;
+        }
+    }
+
+    if (*pegou_bomba) {
+        (*passos_heroi)--;
+    }
+    if ((*passos_heroi <= 0)) {
+        *passos_heroi = 0;
+        *pegou_bomba = 0;
+    }
+    return 0;
+}
+
+
+int heroi_inativo(Heroi * heroi) {
+    if (heroi->posicao.x == INATIVO) {
+        return 1;
+    }
+    else 
+        return 0;
 }
 
 
@@ -238,19 +331,23 @@ float distancia(Posicao posicao1, Posicao posicao2) {
 }
 
 
-int mover_fantasmas(Mapa * mapa, Heroi * heroi, Fantasmas * fantasmas) {
+int mover_fantasmas(Mapa * mapa, Heroi * heroi, Fantasmas * fantasmas, int pegou_bomba) {
     
     int candidato_x, candidato_y, prox_x, prox_y;
     int pos_x, pos_y, mover;
     Posicao movimetacoes[4] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
     float distancia_atual, nova_distancia;
     
-
     srand(time(NULL));
 
     for (int i = 0; i < fantasmas->num; i++) {
         pos_x = fantasmas->posicoes[i].x;
         pos_y = fantasmas->posicoes[i].y;
+
+        if (pos_x == INATIVO) {
+            continue;
+        }
+            
 
         prox_x = pos_x;
         prox_y = pos_y;
@@ -266,9 +363,9 @@ int mover_fantasmas(Mapa * mapa, Heroi * heroi, Fantasmas * fantasmas) {
             nova_distancia = distancia(heroi->posicao, nova_posicao);
             
             if (posicao_vazio(mapa, candidato_x, candidato_y) || 
-                posicao_heroi(mapa, heroi, candidato_x, candidato_y)) {
+                posicao_heroi(heroi, candidato_x, candidato_y)) {
 
-                if (distancia_atual > nova_distancia) {
+                if (pow(-1, pegou_bomba) * distancia_atual > pow(-1, pegou_bomba) * nova_distancia) {
                     prox_x = candidato_x;
                     prox_y = candidato_y;
                     distancia_atual = nova_distancia;
@@ -277,9 +374,12 @@ int mover_fantasmas(Mapa * mapa, Heroi * heroi, Fantasmas * fantasmas) {
                     prox_x = candidato_x;
                     prox_y = candidato_y;
                 }
+                if (posicao_heroi(heroi, prox_x, prox_y)) {
+                    heroi->posicao.x = INATIVO;
+                    heroi->posicao.y = INATIVO;
+                }
             }
-        } 
-                
+        }            
 
         mapa->matriz[pos_y][pos_x] = '.';
         mapa->matriz[prox_y][prox_x] = fantasmas->aparencia;
@@ -290,7 +390,10 @@ int mover_fantasmas(Mapa * mapa, Heroi * heroi, Fantasmas * fantasmas) {
 }
 
 
-int jogo_acabou(Mapa * mapa, Heroi * heroi) {
-    
-    return !encontrar_heroi(mapa, heroi);
+int jogo_acabou(Mapa * mapa, Heroi * heroi, Fantasmas * fantasmas, int * num_inativos) {
+    if (*num_inativos == fantasmas->num)
+        return 1;
+    else if (heroi->posicao.x == INATIVO)
+        return 2;
+    return 0;
 }
